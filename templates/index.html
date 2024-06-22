@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitor with AJAX Form</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">System Monitor with AJAX Form</h1>
+        <div class="row">
+            <div class="col-md-4">
+                <canvas id="loadUsageChart"></canvas>
+            </div>
+            <div class="col-md-4">
+                <canvas id="cpuUsageChart"></canvas>
+            </div>
+            <div class="col-md-4">
+                <canvas id="ramUsageChart"></canvas>
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <h2>Update Variable</h2>
+                <form id="updateForm">
+                    <div class="form-group">
+                        <input type="text" class="form-control" name="variabel" placeholder="Enter new value">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </form>
+            </div>
+            <div class="col-md-6">
+                <h2>Logs</h2>
+                <textarea class="form-control" id="logs" rows="10" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            var textarea = document.getElementById('logs');
+            textarea.scrollTop = textarea.scrollHeight;
+        };
+
+        // Charts
+        const loadUsageCtx = document.getElementById('loadUsageChart').getContext('2d');
+        const cpuUsageCtx = document.getElementById('cpuUsageChart').getContext('2d');
+        const ramUsageCtx = document.getElementById('ramUsageChart').getContext('2d');
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize charts
+            const loadUsageChart = new Chart(loadUsageCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Used', 'Free'],
+                    datasets: [{
+                        label: 'Load Usage',
+                        data: [0, 100], // Initialize with 0
+                        backgroundColor: ['rgba(255, 99, 132, 0.2)', 'rgba(54, 162, 235, 0.2)'],
+                        borderColor: ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { title: { display: true, text: 'Load Usage' } }
+            });
+
+            const cpuUsageChart = new Chart(cpuUsageCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Used', 'Free'],
+                    datasets: [{
+                        label: 'CPU Usage',
+                        data: [0, 100], // Initialize with 0
+                        backgroundColor: ['rgba(255, 206, 86, 0.2)', 'rgba(75, 192, 192, 0.2)'],
+                        borderColor: ['rgba(255, 206, 86, 1)', 'rgba(75, 192, 192, 1)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { title: { display: true, text: 'CPU Usage' } }
+            });
+
+            const ramUsageChart = new Chart(ramUsageCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Used', 'Free'],
+                    datasets: [{
+                        label: 'RAM Usage',
+                        data: [0, 100], // Initialize with 0
+                        backgroundColor: ['rgba(153, 102, 255, 0.2)', 'rgba(255, 159, 64, 0.2)'],
+                        borderColor: ['rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { title: { display: true, text: 'RAM Usage' } }
+            });
+
+            // Function to update chart data
+            function updateChartData(chart, newData) {
+                chart.data.datasets.forEach((dataset) => {
+                    dataset.data = newData;
+                });
+                chart.update();
+            }
+
+            // Fetch and update data for each chart
+            function fetchDataAndUpdateCharts() {
+                // fetch('/usage/load')
+                //     .then(response => response.json())
+                //     .then(data => {
+                //         const load = data.load[0]; // Assuming load[0] is the 1-minute average
+                //         updateChartData(loadUsageChart, [load, 100 - load]);
+                //     });
+
+                fetch('/usage/cpu')
+                    .then(response => response.json())
+                    .then(data => {
+                        const cpuPercent = data.cpu_percent;
+                        updateChartData(cpuUsageChart, [cpuPercent, 100 - cpuPercent]);
+                    });
+
+                fetch('/usage/ram')
+                    .then(response => response.json())
+                    .then(data => {
+                        const usedRam = (data.total - data.available) / data.total * 100;
+                        const freeRam = 100 - usedRam;
+                        updateChartData(ramUsageChart, [usedRam, freeRam]);
+                    });
+            }
+
+            fetchDataAndUpdateCharts();
+
+            // Update charts every 5 seconds
+            setInterval(fetchDataAndUpdateCharts, 5000);
+        });
+
+        // Fetch Logs
+        function fetchLogs() {
+            fetch('/logs')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('logs').innerText = data;
+                });
+            setTimeout(fetchLogs, 1000);
+        }
+        document.addEventListener('DOMContentLoaded', fetchLogs);
+
+        // AJAX Form Submission
+        document.getElementById('updateForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch('/form', {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (response.ok) {
+                    this.reset();
+                    document.getElementById('logs').scrollTop = textarea.scrollHeight;
+                    // alert('Variable updated successfully!');
+                } else {
+                    // alert('Failed to update variable.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
